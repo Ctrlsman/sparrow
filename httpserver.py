@@ -1,4 +1,4 @@
-import urllib
+import urllib.parse
 import datetime
 from config import httpconfig
 
@@ -16,8 +16,9 @@ class Cookie:
         """
         设置cookie
         """
-
-        value = urllib.quote(value)
+        if not isinstance(value, str):
+            value = str(value)
+        value = urllib.parse.quote(value)
         self.COOKIE[key] = '='.join([key, value]) + ';'
 
         if expires:
