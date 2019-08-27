@@ -7,9 +7,7 @@ import time
 
 
 class HttpResponse(object):
-    """
-    封装响应信息
-    """
+    
     def __init__(self, content=''):
         self.content = content
 
