@@ -1,16 +1,17 @@
 from sparrow import Sparrow
-from sparrow import HttpResponse
+from httpserver import HttpResponse
 
 
 def index(request):
-    return HttpResponse('hey man!')
+    response = HttpResponse()
+    response.set_body('hey man!')
+    return response.get_response()
+
 
 routes = [
-    (r'/index', index)
+    (r'/index^', index)
 ]
 
 
 app = Sparrow(routes)
 app.run(port=6666)
-
-

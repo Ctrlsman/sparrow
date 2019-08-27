@@ -4,26 +4,8 @@ import re
 import socket
 import select
 import time
+from httpserver import HttpResponse, HttpNotFound
 
-
-class HttpResponse(object):
-    
-    def __init__(self, content=''):
-        self.content = content
-
-        self.headers = {}
-        self.cookies = {}
-
-    def response(self):
-        return bytes(self.content, encoding='utf-8')
-
-
-class HttpNotFound(HttpResponse):
-    """
-    404时的错误提示
-    """
-    def __init__(self):
-        super(HttpNotFound, self).__init__('404 Not Found')
 
 
 class HttpRequest(object):
@@ -140,30 +122,34 @@ class Sparrow(object):
         sock.listen(128)
         sock.setblocking(0)
         self.inputs.add(sock)
-        try:
-            while True:
-                readable_list, writeable_list, error_list = select.select(self.inputs, [], self.inputs,0.005)
-                for conn in readable_list:
-                    if sock == conn:
-                        client, address = conn.accept()
-                        client.setblocking(False)
-                        self.inputs.add(client)
+        # try:
+        while True:
+            readable_list, writeable_list, error_list = select.select(self.inputs, [], self.inputs,0.005)
+            for conn in readable_list:
+                if sock == conn:
+                    client, address = conn.accept()
+                    client.setblocking(False)
+                    self.inputs.add(client)
+                else:
+                    gen = self.process(conn)
+                    print(gen, type(gen))
+                    if isinstance(gen, HttpResponse):
+                        conn.sendall(gen.get_response())
+                        self.inputs.remove(conn)
+                        conn.close()
+                    elif isinstance(gen, bytes):
+                        conn.sendall(gen)
+                        self.inputs.remove(conn)
+                        conn.close()
                     else:
-                        gen = self.process(conn)
-                        print(gen.__dict__, type(gen))
-                        if isinstance(gen, HttpResponse):
-                            conn.sendall(gen.response())
-                            self.inputs.remove(conn)
-                            conn.close()
-                        else:
-                            yielded = next(gen)
-                            self.async_request_handler[conn] = yielded
-                self.polling_callback()
+                        yielded = next(gen)
+                        self.async_request_handler[conn] = yielded
+            self.polling_callback()
 
-        except Exception as e:
-            pass
-        finally:
-            sock.close()
+        # except Exception as e:
+        #     print(f'has error:{e}')
+        # finally:
+        sock.close()
 
     def polling_callback(self):
         """
@@ -176,7 +162,7 @@ class Sparrow(object):
                 continue
             if yielded.callback:
                 ret = yielded.callback(self.request, yielded)
-                conn.sendall(ret.response())
+                conn.sendall(ret.get_response())
             self.inputs.remove(conn)
             del self.async_request_handler[conn]
             conn.close()
